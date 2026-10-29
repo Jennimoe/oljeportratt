@@ -1,1 +1,684 @@
-Oljeportratt.se
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEMSIDAN - NAMNET | Oljemåleri & Porträtt</title>
+    <!-- Google Fonts för elegant galleristil -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    <!-- Supabase JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Cloudflare Turnstile Skript -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    
+    <style>
+        :root {
+            --bg-color: #f9f9f9;
+            --text-color: #1a1a1a;
+            --accent-color: #c5a880; /* Dämpad guld */
+            --accent-hover: #a3875f;
+            --card-bg: #ffffff;
+            --font-serif: 'Cormorant Garamond', Georgia, serif;
+            --font-sans: 'Inter', sans-serif;
+            --gap-large: 4rem;
+            --gap-medium: 2rem;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Bakgrundsbild med 30% opacitet enligt krav */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('bakgrund.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0.3;
+            z-index: -1;
+        }
+
+        h1, h2, h3, .logo {
+            font-family: var(--font-serif);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        /* Header & Navigation */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 5%;
+            background-color: rgba(249, 249, 249, 0.9);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            color: var(--accent-color);
+        }
+
+        /* Hamburger Menu (CSS Hack) */
+        .menu-btn, #menu-toggle {
+            display: none;
+        }
+
+        /* Sektioner Baslayout */
+        section {
+            padding: 5rem 5%;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: none; /* Styrs via JS flikar */
+        }
+
+        section.active-section {
+            display: block;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            margin-bottom: var(--gap-medium);
+            text-align: center;
+            position: relative;
+            padding-bottom: 0.5rem;
+        }
+
+        .section-title::after {
+            content: "";
+            position: absolute;
+            bottom: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 50px; height: 1px;
+            background-color: var(--accent-color);
+        }
+
+        /* Meny: Hem & Om mig */
+        .hero {
+            text-align: center;
+            padding: 3rem 0 var(--gap-large) 0;
+        }
+
+        .hero h1 { font-size: 4rem; line-height: 1.1; }
+        .hero p { font-size: 1.5rem; color: #555; font-style: italic; margin-top: 0.5rem; }
+
+        .about-container {
+            display: flex;
+            gap: var(--gap-large);
+            align-items: center;
+            margin-top: var(--gap-medium);
+        }
+
+        .about-text {
+            flex: 1;
+            font-size: 1.05rem;
+            text-align: justify;
+        }
+
+        /* Meny: Beställa Porträtt */
+        .order-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .order-text {
+            font-size: 1.15rem;
+            margin-bottom: var(--gap-medium);
+            text-align: justify;
+        }
+        .price-tag {
+            display: inline-block;
+            background-color: rgba(197, 168, 128, 0.1);
+            border: 1px solid var(--accent-color);
+            padding: 1rem 2rem;
+            font-family: var(--font-serif);
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+
+        /* Galleri & Till Salu Layout (CSS Grid) */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: var(--gap-medium);
+            margin-top: var(--gap-medium);
+        }
+
+        .art-card {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(0,0,0,0.05);
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+        }
+
+        .art-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.08);
+        }
+
+        .art-img-wrapper {
+            width: 100%;
+            height: 350px;
+            overflow: hidden;
+            background-color: #eee;
+        }
+
+        .art-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s ease;
+        }
+
+        .art-card:hover img {
+            transform: scale(1.03);
+        }
+
+        .art-info {
+            padding: 1.5rem;
+        }
+
+        .art-info h3 {
+            font-size: 1.4rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .art-meta {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.8rem;
+        }
+
+        .art-status-price {
+            font-family: var(--font-serif);
+            font-weight: 600;
+            color: var(--accent-color);
+            border-top: 1px solid #eee;
+            padding-top: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Kontaktformulär */
+        .contact-form {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2.5rem;
+            border-radius: 2px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            background-color: var(--bg-color);
+            font-family: inherit;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: var(--text-color);
+            color: #fff;
+            padding: 0.9rem 2rem;
+            border: none;
+            font-family: var(--font-sans);
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-color);
+        }
+
+        .turnstile-wrapper {
+            margin: 1.5rem 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Footer & Dold Admin-länk */
+        footer {
+            text-align: center;
+            padding: 4rem 5%;
+            margin-top: var(--gap-large);
+            font-size: 0.9rem;
+            color: #666;
+            border-top: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .footer-links {
+            margin-bottom: 1rem;
+        }
+
+        .footer-links a {
+            margin: 0 1rem;
+        }
+
+        .admin-trigger {
+            color: var(--bg-color); /* Helt osynlig mot bakgrunden */
+            cursor: default;
+            user-select: none;
+            font-size: 1px;
+            display: inline-block;
+        }
+
+        /* Modaler (Inloggning & Backend) */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .modal-content {
+            background: #fff;
+            padding: 2.5rem;
+            max-width: 500px;
+            width: 100%;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .modal-content-backend {
+            max-width: 800px;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 1rem; right: 1rem;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* Responsivitet */
+        @media (max-width: 768px) {
+            header { padding: 1rem 5%; }
+            .menu-btn {
+                display: block;
+                font-size: 1.5rem;
+                cursor: pointer;
+                z-index: 101;
+            }
+            .nav-links {
+                position: fixed;
+                top: 0; right: -100%;
+                width: 70%; height: 100vh;
+                background-color: #fff;
+                flex-direction: column;
+                padding: 5rem 2rem;
+                transition: right 0.4s ease;
+                box-shadow: -10px 0 30px rgba(0,0,0,0.05);
+            }
+            #menu-toggle:checked ~ .nav-links {
+                right: 0;
+            }
+            .about-container { flex-direction: column; }
+            .hero h1 { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">Hemsidan</div>
+        <input type="checkbox" id="menu-toggle">
+        <label for="menu-toggle" class="menu-btn">&#9776;</label>
+        <ul class="nav-links">
+            <li><a href="#hem" class="nav-item active" onclick="switchSection('hem')">Hem</a></li>
+            <li><a href="#bestalla" class="nav-item" onclick="switchSection('bestalla')">Beställa porträtt</a></li>
+            <li><a href="#galleri" class="nav-item" onclick="switchSection('galleri')">Galleri</a></li>
+            <li><a href="#tillsalu" class="nav-item" onclick="switchSection('tillsalu')">Till salu</a></li>
+            <li><a href="#kontakt" class="nav-item" onclick="switchSection('kontakt')">Contact</a></li>
+        </ul>
+    </header>
+
+    <section id="hem" class="active-section">
+        <div class="hero">
+            <h1>HEMSIDAN</h1>
+            <p>NAMNET</p>
+        </div>
+        <div class="about-container">
+            <div class="about-text">
+                <p>Jag har alltid älskat att måla och redan vid 12 års ålder började jag måla i olja. Min konstnärliga utbildning fick jag på Nyckelviksskolan där jag studerade både måleri och konsthantverk. Parallellt med målandet spelade jag också oboe. Musiken var ett lika stort intresse och efter Nyckelviksskolan blev det så småningom musikerutbildning på Musikhögskolan i Stockholm.</p>
+                <br>
+                <p>Har sedan dess arbetat som oboist i Uppsala Kammarorkester på deltid samt frilansat i olika orkestrar runt om i Sverige. Senaste åren har jag tagit upp måleriet igen, och det har utvecklats till en mer seriös verksamhet med både beställningar och utställningar. Jag har nischat mig inom porträttmåleriet, men målar självklart annat också, som natur och djur, ibland också abstrakt eller fantasiinspirerade bilder.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="bestalla">
+        <h2 class="section-title">Vill du beställa porträtt</h2>
+        <div class="order-container">
+            <p class="order-text">Inför ett porträttuppdrag vill jag gärna träffa personen som ska avbildas för en fotografering. Det är viktigt, om möjligt, att träffa personen "live" för att få en känsla för personligheten och ansiktsdrag. Ska porträttet visa personens yrkesroll eller i mer privat sfär. Utifrån beställarens önskemål, kombinerat med min input om estetisk komposition, tar jag en bild som blir förlaga till porträttet.</p>
+            <div class="price-tag">Pris: Mellan 10 000 och 30 000 kronor beroende på storlek och antal ansikten.</div>
+        </div>
+    </section>
+
+    <section id="galleri">
+        <h2 class="section-title">Galleri</h2>
+        <div class="gallery-grid" id="gallery-container">
+            <div class="art-card">
+                <div class="art-img-wrapper"><img src="G1.jpg" alt="Exempelverk"></div>
+                <div class="art-info">
+                    <h3>Exempelporträtt 1</h3>
+                    <div class="art-meta">50x70 cm • Olja på duk</div>
+                    <div class="art-status-price"><span>Beställningsverk</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="tillsalu">
+        <h2 class="section-title">Till salu</h2>
+        <div class="gallery-grid" id="tillsalu-container">
+            <div class="art-card">
+                <div class="art-img-wrapper"><img src="JH1.jpg" alt="Verk till salu"></div>
+                <div class="art-info">
+                    <h3>Originalmålning 1</h3>
+                    <div class="art-meta">40x40 cm • Olja</div>
+                    <div class="art-status-price"><span>Till salu</span> <span>12 500 kr</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="kontakt">
+        <h2 class="section-title">Kontakt</h2>
+        <form class="contact-form" action="https://formspree.io/f/YOUR_ID_HERE" method="POST">
+            <div class="form-group">
+                <label for="name">Namn</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="email">E-postadress</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="message">Meddelande</label>
+                <textarea id="message" name="message" rows="5" required></textarea>
+            </div>
+            
+            <div class="turnstile-wrapper">
+                <div class="cf-turnstile" data-sitekey="XXX"></div>
+            </div>
+
+            <button type="submit" class="btn">Skicka meddelande</button>
+        </form>
+    </section>
+
+    <footer>
+        <div class="footer-links">
+            <a href="https://instagram.com" target="_blank">Instagram</a>
+        </div>
+        <p>&copy; 2026 NAMNET. Alla rättigheter reserverade.</p>
+        <span class="admin-trigger" onclick="openLoginModal()">.</span>
+    </footer>
+
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('loginModal')">&times;</span>
+            <h2 style="font-family: var(--font-serif); margin-bottom: 1.5rem;">Logga in som administratör</h2>
+            
+            <div id="login-step-1">
+                <div class="form-group">
+                    <label>Ange din admin e-post</label>
+                    <input type="email" id="admin-email" placeholder="jenny@dinmail.com">
+                </div>
+                <button class="btn" onclick="sendOTP()">Skicka engångskod</button>
+            </div>
+
+            <div id="login-step-2" style="display: none;">
+                <p style="font-size: 0.9rem; margin-bottom: 1rem; color: #666;">En 6-siffrig kod har skickats till din e-post. Koden är giltig i 5 minuter.</p>
+                <div class="form-group">
+                    <label>Skriv in kod</label>
+                    <input type="text" id="admin-otp" placeholder="123456">
+                </div>
+                <button class="btn" onclick="verifyOTP()">Verifiera & Logga in</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="backendModal">
+        <div class="modal-content modal-content-backend">
+            <span class="close-modal" onclick="closeModal('backendModal')">&times;</span>
+            <h2 style="font-family: var(--font-serif); margin-bottom: 1.5rem;">Administrationsvy - Lägg till verk</h2>
+            
+            <div class="form-group">
+                <label>Titel på målning</label>
+                <input type="text" id="art-title">
+            </div>
+            <div class="form-group">
+                <label>Mått (t.ex. 50x70 cm)</label>
+                <input type="text" id="art-dimensions">
+            </div>
+            <div class="form-group">
+                <label>Kategori</label>
+                <select id="art-category" style="width:100%; padding:0.8rem; border:1px solid #ddd; background:#f9f9f9;">
+                    <option value="galleri">Enbart Galleri (Beställningsverk/Såld)</option>
+                    <option value="tillsalu">Till salu</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Pris / Status (t.ex. "15 000 kr" eller "Beställningsverk")</label>
+                <input type="text" id="art-price">
+            </div>
+            <div class="form-group">
+                <label>Välj Bildfil</label>
+                <input type="file" id="art-file" accept="image/*">
+            </div>
+            
+            <button class="btn" onclick="uploadArtwork()" style="margin-bottom: 1rem;">Publicera på hemsidan</button>
+            <button class="btn" onclick="logout()" style="background-color: #cc0000;">Logga ut</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. ANSLUT TILL DITT SUPABASE-PROJEKT ---
+        const SUPABASE_URL = "https://ghwpegolxvvaviuyovse.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_w61rQjVZnIQv18VOV_3iog_tRf6pGqs";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- 2. FLIK-HANTERING (NAVIGATION) ---
+        function switchSection(sectionId) {
+            document.querySelectorAll('section').forEach(sec => sec.classList.remove('active-section'));
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            
+            document.getElementById(sectionId).classList.add('active-section');
+            event.target.classList.add('active');
+            
+            // Stäng hamburgermeny på mobil vid klick
+            document.getElementById('menu-toggle').checked = false;
+        }
+
+        // --- 3. HÄMTA MÅLNINGAR FRÅN DATABASEN ---
+        async function loadArtworks() {
+            // Hämta data från Supabase-tabellen 'artworks'
+            const { data, error } = await supabase.from('artworks').select('*').order('id', { ascending: false });
+            
+            if (error || !data || data.length === 0) {
+                console.log("Inga bilder i databasen än eller fel uppstod. Visar standard placeholders.");
+                return; // Behåller HTML-hårdkodade exempel i demonstrationssyfte
+            }
+
+            const galleryContainer = document.getElementById('gallery-container');
+            const tillsaluContainer = document.getElementById('tillsalu-container');
+            
+            galleryContainer.innerHTML = '';
+            tillsaluContainer.innerHTML = '';
+
+            data.forEach(art => {
+                const card = document.createElement('div');
+                card.className = 'art-card';
+                card.innerHTML = `
+                    <div class="art-img-wrapper"><img src="${art.image_url}" alt="${art.title}"></div>
+                    <div class="art-info">
+                        <h3>${art.title}</h3>
+                        <div class="art-meta">${art.dimensions} • Olja</div>
+                        <div class="art-status-price">
+                            <span>${art.category === 'tillsalu' ? 'Till salu' : 'Porträtt'}</span>
+                            <span>${art.price || ''}</span>
+                        </div>
+                    </div>
+                `;
+
+                if (art.category === 'tillsalu') {
+                    tillsaluContainer.appendChild(card);
+                } else {
+                    galleryContainer.appendChild(card);
+                }
+            });
+        }
+
+        // Läs in bilderna automatiskt när hemsidan öppnas
+        window.onload = loadArtworks;
+
+        // --- 4. MODAL-KONTROLLER ---
+        function openLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // --- 5. SÄKER INLOGGNING MED ENGÅNGSKOD (OTP) ---
+        async function sendOTP() {
+            const email = document.getElementById('admin-email').value;
+            if(!email) return alert("Ange din e-post!");
+
+            // Skickar ett mejl till Jenny via Supabase säkra servrar
+            const { error } = await supabase.auth.signInWithOtp({ email: email });
+            
+            if (error) {
+                alert("Fel vid sändning: " + error.message);
+            } else {
+                document.getElementById('login-step-1').style.display = 'none';
+                document.getElementById('login-step-2').style.display = 'flex';
+            }
+        }
+
+        async function verifyOTP() {
+            const email = document.getElementById('admin-email').value;
+            const token = document.getElementById('admin-otp').value;
+
+            // Verifierar koden på servernivå hos Supabase
+            const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'magiclink' });
+
+            if (error) {
+                alert("Felaktig eller utgången kod. Försök igen.");
+            } else if (data.user) {
+                closeModal('loginModal');
+                document.getElementById('backendModal').style.display = 'flex';
+            }
+        }
+
+        // --- 6. BILDUPLOAD & DATABASSPARNING ---
+        async function uploadArtwork() {
+            const title = document.getElementById('art-title').value;
+            const dimensions = document.getElementById('art-dimensions').value;
+            const category = document.getElementById('art-category').value;
+            const price = document.getElementById('art-price').value;
+            const fileInput = document.getElementById('art-file');
+
+            if(!title || !fileInput.files || fileInput.files.length === 0) return alert("Titel och bildfil krävs!");
+
+            const file = fileInput.files[0];
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}.${fileExt}`;
+            
+            // 1. Ladda upp filen till Supabase Storage (Bucket: 'paintings')
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('paintings')
+                .upload(fileName, file);
+
+            if (uploadError) return alert("Kunde inte ladda upp bildfil: " + uploadError.message);
+
+            // Hämta den publika länken till bilden
+            const { data: urlData } = supabase.storage.from('paintings').getPublicUrl(fileName);
+            const imageUrl = urlData.publicUrl;
+
+            // 2. Spara all text + bildlänk i databastabellen 'artworks'
+            const { error: dbError } = await supabase.from('artworks').insert([
+                { title, dimensions, category, price, image_url: imageUrl }
+            ]);
+
+            if (dbError) {
+                alert("Fel vid sparande i databas: " + dbError.message);
+            } else {
+                alert("Målningen har lagts till framgångsrikt!");
+                closeModal('backendModal');
+                loadArtworks(); // Ladda om galleriet på sidan direkt
+            }
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            closeModal('backendModal');
+            alert("Du har loggat ut.");
+        }
+    </script>
+</body>
+</html>
