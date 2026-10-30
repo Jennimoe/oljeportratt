@@ -417,6 +417,102 @@
             margin-top: 0.5rem;
         }
 
+        .admin-list-title {
+            margin-top: 2rem;
+            font-size: 1.2rem;
+        }
+
+        .admin-list {
+            display: grid;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        .admin-item {
+            display: grid;
+            grid-template-columns: 64px 1fr;
+            gap: 0.75rem;
+            align-items: center;
+            padding: 0.6rem;
+            border: 1px solid #d8d4cb;
+            background-color: #fff;
+        }
+
+        .admin-item img {
+            width: 64px;
+            height: 64px;
+            object-fit: cover;
+        }
+
+        .admin-item-info {
+            display: grid;
+            gap: 0.2rem;
+            font-size: 0.9rem;
+            min-width: 0;
+        }
+
+        .admin-item-info span {
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+
+        .admin-item-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .admin-item-actions button {
+            flex: 1 1 auto;
+            padding: 0.45rem 0.7rem;
+            border: 1px solid var(--ink);
+            border-radius: 2px;
+            background-color: #fff;
+            color: var(--ink);
+            font: inherit;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .admin-item-actions button:hover:not(:disabled) {
+            background-color: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .admin-item-actions button:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+        .admin-item-actions button.danger {
+            border-color: #8c2f2f;
+            color: #8c2f2f;
+        }
+
+        @media (min-width: 640px) {
+            .admin-item {
+                grid-template-columns: 64px 1fr auto;
+            }
+
+            .admin-item-actions {
+                grid-column: auto;
+            }
+        }
+
+        .hero-photo {
+            display: block;
+            width: clamp(140px, 22vw, 190px);
+            height: clamp(140px, 22vw, 190px);
+            object-fit: cover;
+            object-position: center 30%;
+            border-radius: 50%;
+            margin: 0 auto 1.5rem;
+            border: 3px solid var(--surface);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
         /* Footer & Dold Admin-länk */
         footer {
             text-align: center;
@@ -620,6 +716,7 @@
 
     <section id="hem" class="active-section">
         <div class="hero">
+            <img class="hero-photo" src="jenny.png" alt="Jenny Hülphers">
             <h1>Oljeporträtt.se</h1>
             <p>Jenny Hülphers</p>
         </div>
@@ -731,7 +828,7 @@
     <div class="modal" id="backendModal">
         <div class="modal-content modal-content-backend">
             <span class="close-modal" onclick="closeModal('backendModal')">&times;</span>
-            <h2>Administrationsvy - Lägg till verk</h2>
+            <h2 id="backend-title">Administrationsvy - Lägg till verk</h2>
             <div class="admin-grid">
             
             <div class="form-group">
@@ -750,6 +847,13 @@
                 </select>
             </div>
             <div class="form-group">
+                <label for="art-kind">Typ</label>
+                <select id="art-kind">
+                    <option value="portratt">Porträtt</option>
+                    <option value="tavla">Tavla</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="art-price">Pris / Status (t.ex. "15 000 kr" eller "Beställningsverk")</label>
                 <input type="text" id="art-price">
             </div>
@@ -758,15 +862,19 @@
                 <textarea id="art-description" rows="3"></textarea>
             </div>
             <div class="form-group admin-wide">
-                <label for="art-file">Välj bildfil</label>
+                <label for="art-file" id="art-file-label">Välj bildfil</label>
                 <input type="file" id="art-file" accept="image/*">
             </div>
             </div>
             
             <div class="admin-actions">
-                <button class="btn" onclick="uploadArtwork()">Publicera på hemsidan</button>
+                <button class="btn" id="art-submit" onclick="uploadArtwork()">Publicera på hemsidan</button>
+                <button class="btn" id="art-cancel" onclick="resetArtworkForm()" style="display: none;">Avbryt redigering</button>
                 <button class="btn btn-danger" onclick="logout()">Logga ut</button>
             </div>
+
+            <h3 class="admin-list-title">Publicerade verk</h3>
+            <div class="admin-list" id="admin-list"></div>
         </div>
     </div>
 
@@ -837,7 +945,7 @@
             const statusPrice = document.createElement('div');
             statusPrice.className = 'art-status-price';
             const status = document.createElement('span');
-            status.textContent = art.category === 'tillsalu' ? 'Till salu' : 'Porträtt';
+            status.textContent = art.kind === 'tavla' ? 'Tavla' : 'Porträtt';
             const price = document.createElement('span');
             price.textContent = art.price || '';
             statusPrice.append(status, price);
@@ -900,6 +1008,7 @@
                 const result = await supabaseClient
                     .from('artworks')
                     .select('*')
+                    .order('sort_order', { ascending: true, nullsFirst: false })
                     .order('id', { ascending: false });
                 if (result.error) {
                     console.error('Kunde inte hämta målningarna:', result.error);
@@ -917,8 +1026,10 @@
 
             galleryContainer.replaceChildren();
             tillsaluContainer.replaceChildren();
+            artworkCache = data || [];
+            renderAdminList();
 
-            (data || []).forEach(art => {
+            artworkCache.forEach(art => {
                 if (art.category === 'tillsalu') {
                     tillsaluContainer.appendChild(createArtworkCard(art));
                 } else {
@@ -1032,8 +1143,47 @@
             }
         }
 
-        // --- 6. BILDUPLOAD & DATABASSPARNING ---
+        // --- 6. BILDUPLOAD, REDIGERING & DATABASSPARNING ---
         let uploading = false;
+        let artworkCache = [];
+        let editingArtwork = null;
+
+        const isForSale = art => art.category === 'tillsalu';
+
+        async function removeStoredImage(imageUrl) {
+            if (!imageUrl) return;
+            const fileName = decodeURIComponent(imageUrl.split('/').pop().split('?')[0]);
+            const { error } = await supabaseClient.storage.from('paintings').remove([fileName]);
+            if (error) console.error('Kunde inte ta bort bildfilen:', error);
+        }
+
+        function resetArtworkForm() {
+            editingArtwork = null;
+            ['art-title', 'art-dimensions', 'art-description', 'art-price', 'art-file']
+                .forEach(id => { document.getElementById(id).value = ''; });
+            document.getElementById('art-category').value = 'galleri';
+            document.getElementById('art-kind').value = 'portratt';
+            document.getElementById('backend-title').textContent = 'Administrationsvy - Lägg till verk';
+            document.getElementById('art-file-label').textContent = 'Välj bildfil';
+            document.getElementById('art-submit').textContent = 'Publicera på hemsidan';
+            document.getElementById('art-cancel').style.display = 'none';
+        }
+
+        function startEdit(art) {
+            editingArtwork = art;
+            document.getElementById('art-title').value = art.title || '';
+            document.getElementById('art-dimensions').value = art.dimensions || '';
+            document.getElementById('art-description').value = art.description || '';
+            document.getElementById('art-price').value = art.price || '';
+            document.getElementById('art-category').value = isForSale(art) ? 'tillsalu' : 'galleri';
+            document.getElementById('art-kind').value = art.kind === 'tavla' ? 'tavla' : 'portratt';
+            document.getElementById('art-file').value = '';
+            document.getElementById('backend-title').textContent = 'Redigera verk';
+            document.getElementById('art-file-label').textContent = 'Byt bildfil (valfritt)';
+            document.getElementById('art-submit').textContent = 'Spara ändringar';
+            document.getElementById('art-cancel').style.display = '';
+            document.getElementById('backend-title').scrollIntoView({ block: 'start' });
+        }
 
         async function uploadArtwork() {
             if (uploading) return;
@@ -1041,15 +1191,18 @@
             const dimensions = document.getElementById('art-dimensions').value.trim();
             const description = document.getElementById('art-description').value.trim();
             const category = document.getElementById('art-category').value;
+            const kind = document.getElementById('art-kind').value;
             const price = document.getElementById('art-price').value.trim();
             const fileInput = document.getElementById('art-file');
+            const editing = editingArtwork;
 
-            if (!title || !fileInput.files.length) return alert("Titel och bildfil krävs!");
+            if (!title || (!editing && !fileInput.files.length)) return alert("Titel och bildfil krävs!");
             if (!supabaseClient) return alert("Uppladdning är inte tillgänglig just nu.");
             const file = fileInput.files[0];
-            if (!file.type.startsWith('image/')) return alert("Välj en bildfil.");
+            if (file && !file.type.startsWith('image/')) return alert("Välj en bildfil.");
 
             uploading = true;
+            let newFileName = null;
             try {
                 const { data: userData, error: userError } = await supabaseClient.auth.getUser();
                 if (userError || userData.user?.email?.toLowerCase() !== ADMIN_EMAIL) {
@@ -1057,22 +1210,26 @@
                     return alert("Du måste vara inloggad som administratör för att publicera verk.");
                 }
 
-                const fileName = `${Date.now()}.${file.name.split('.').pop()}`;
-                const { error: uploadError } = await supabaseClient.storage.from('paintings').upload(fileName, file);
-                if (uploadError) return alert("Kunde inte ladda upp bildfil: " + uploadError.message);
+                let imageUrl = editing?.image_url;
+                if (file) {
+                    newFileName = `${Date.now()}.${file.name.split('.').pop()}`;
+                    const { error: uploadError } = await supabaseClient.storage.from('paintings').upload(newFileName, file);
+                    if (uploadError) return alert("Kunde inte ladda upp bildfil: " + uploadError.message);
+                    imageUrl = supabaseClient.storage.from('paintings').getPublicUrl(newFileName).data.publicUrl;
+                }
 
-                const { data: urlData } = supabaseClient.storage.from('paintings').getPublicUrl(fileName);
-                const { error: dbError } = await supabaseClient.from('artworks').insert([
-                    { title, dimensions, description, category, price, image_url: urlData.publicUrl }
-                ]);
+                const values = { title, dimensions, description, category, kind, price, image_url: imageUrl };
+                const { error: dbError } = editing
+                    ? await supabaseClient.from('artworks').update(values).eq('id', editing.id)
+                    : await supabaseClient.from('artworks').insert([values]);
                 if (dbError) {
-                    await supabaseClient.storage.from('paintings').remove([fileName]);
+                    if (newFileName) await removeStoredImage(imageUrl);
                     return alert("Fel vid sparande i databas: " + dbError.message);
                 }
 
-                ['art-title', 'art-dimensions', 'art-description', 'art-price', 'art-file']
-                    .forEach(id => { document.getElementById(id).value = ''; });
-                alert("Målningen har lagts till framgångsrikt!");
+                if (editing && file) await removeStoredImage(editing.image_url);
+                alert(editing ? "Ändringarna har sparats!" : "Målningen har lagts till framgångsrikt!");
+                resetArtworkForm();
                 await loadArtworks();
             } catch (error) {
                 console.error('Uppladdningen misslyckades:', error);
@@ -1082,10 +1239,83 @@
             }
         }
 
+        async function deleteArtwork(art) {
+            if (!confirm(`Ta bort "${art.title || 'verket'}"? Det går inte att ångra.`)) return;
+            const { error } = await supabaseClient.from('artworks').delete().eq('id', art.id);
+            if (error) return alert("Kunde inte ta bort verket: " + error.message);
+            await removeStoredImage(art.image_url);
+            if (editingArtwork?.id === art.id) resetArtworkForm();
+            await loadArtworks();
+        }
+
+        async function moveArtwork(art, direction) {
+            const group = artworkCache.filter(item => isForSale(item) === isForSale(art));
+            const position = group.indexOf(art);
+            const target = position + direction;
+            if (target < 0 || target >= group.length) return;
+
+            [group[position], group[target]] = [group[target], group[position]];
+            const results = await Promise.all(
+                group.map((item, index) => supabaseClient.from('artworks').update({ sort_order: index }).eq('id', item.id))
+            );
+            const failed = results.find(result => result.error);
+            if (failed) return alert("Kunde inte ändra ordningen: " + failed.error.message);
+            await loadArtworks();
+        }
+
+        function makeAdminButton(label, disabled, onClick, danger = false) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = label;
+            button.disabled = disabled;
+            if (danger) button.className = 'danger';
+            button.addEventListener('click', onClick);
+            return button;
+        }
+
+        function renderAdminList() {
+            const list = document.getElementById('admin-list');
+            list.replaceChildren();
+            if (!artworkCache.length) {
+                list.textContent = 'Inga verk publicerade ännu.';
+                return;
+            }
+
+            artworkCache.forEach(art => {
+                const group = artworkCache.filter(item => isForSale(item) === isForSale(art));
+                const position = group.indexOf(art);
+
+                const row = document.createElement('div');
+                row.className = 'admin-item';
+                const image = document.createElement('img');
+                image.src = art.image_url || '';
+                image.alt = '';
+                image.loading = 'lazy';
+                const info = document.createElement('div');
+                info.className = 'admin-item-info';
+                const title = document.createElement('strong');
+                title.textContent = art.title || '(utan titel)';
+                const meta = document.createElement('span');
+                meta.textContent = `${isForSale(art) ? 'Till salu' : 'Galleri'} • ${art.kind === 'tavla' ? 'Tavla' : 'Porträtt'}`;
+                info.append(title, meta);
+                const actions = document.createElement('div');
+                actions.className = 'admin-item-actions';
+                actions.append(
+                    makeAdminButton('↑ Upp', position === 0, () => moveArtwork(art, -1)),
+                    makeAdminButton('↓ Ner', position === group.length - 1, () => moveArtwork(art, 1)),
+                    makeAdminButton('Redigera', false, () => startEdit(art)),
+                    makeAdminButton('Ta bort', false, () => deleteArtwork(art), true)
+                );
+                row.append(image, info, actions);
+                list.appendChild(row);
+            });
+        }
+
         async function logout() {
             if (!supabaseClient) return alert("Inloggningen är inte tillgänglig just nu.");
             const { error } = await supabaseClient.auth.signOut();
             if (error) return alert("Kunde inte logga ut: " + error.message);
+            resetArtworkForm();
             closeModal('backendModal');
             alert("Du har loggat ut.");
         }
