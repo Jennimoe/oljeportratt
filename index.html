@@ -775,6 +775,8 @@
         const SUPABASE_URL = "https://ghwpegolxvvaviuyovse.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_w61rQjVZnIQv18VOV_3iog_tRf6pGqs";
         const ADMIN_EMAIL = "jennimoe@gmail.com";
+        // Supabase tar bort #access_token från adressen när den läst den, så vi läser den före det.
+        const cameFromMagicLink = /access_token=/.test(window.location.hash);
         const supabaseClient = window.supabase
             ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
             : null;
@@ -992,7 +994,16 @@
         });
 
         // --- 4. MODAL-KONTROLLER ---
-        function openLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
+        async function openLoginModal() {
+            if (supabaseClient) {
+                const { data } = await supabaseClient.auth.getSession();
+                if (data.session?.user?.email?.toLowerCase() === ADMIN_EMAIL) {
+                    document.getElementById('backendModal').style.display = 'flex';
+                    return;
+                }
+            }
+            document.getElementById('loginModal').style.display = 'flex';
+        }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
         // --- 5. SÄKER INLOGGNING MED E-POSTLÄNK ---
@@ -1082,7 +1093,8 @@
         if (supabaseClient) {
             supabaseClient.auth.onAuthStateChange((event, session) => {
                 const isAdmin = session?.user?.email?.toLowerCase() === ADMIN_EMAIL;
-                if (event === 'SIGNED_IN' && isAdmin && localStorage.getItem('adminLoginPending')) {
+                const loginExpected = localStorage.getItem('adminLoginPending') || cameFromMagicLink;
+                if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && isAdmin && loginExpected) {
                     localStorage.removeItem('adminLoginPending');
                     closeModal('loginModal');
                     document.getElementById('backendModal').style.display = 'flex';
