@@ -1208,6 +1208,33 @@ Hjärtligt välkommen att kontakta mig för en beställning.</p>
             document.getElementById('backend-title').scrollIntoView({ block: 'start' });
         }
 
+        // Skalar ner stora bilder (t.ex. från mobilkamera) till max 2000 px och sparar som JPEG.
+        // Returnerar originalfilen om något går fel eller om bilden redan är liten.
+        async function optimizeImage(file) {
+            const MAX_SIZE = 2000;
+            if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
+            try {
+                const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+                const scale = Math.min(1, MAX_SIZE / Math.max(bitmap.width, bitmap.height));
+                const width = Math.round(bitmap.width * scale);
+                const height = Math.round(bitmap.height * scale);
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(bitmap, 0, 0, width, height);
+                bitmap.close();
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+                if (!blob || blob.size >= file.size) return file;
+                return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+            } catch (error) {
+                console.warn('Kunde inte optimera bilden, använder originalet:', error);
+                return file;
+            }
+        }
+
         async function uploadArtwork() {
             if (uploading) return;
             const title = document.getElementById('art-title').value.trim();
@@ -1235,8 +1262,9 @@ Hjärtligt välkommen att kontakta mig för en beställning.</p>
 
                 let imageUrl = editing?.image_url;
                 if (file) {
-                    newFileName = `${Date.now()}.${file.name.split('.').pop()}`;
-                    const { error: uploadError } = await supabaseClient.storage.from('paintings').upload(newFileName, file);
+                    const uploadFile = await optimizeImage(file);
+                    newFileName = `${Date.now()}.${uploadFile.name.split('.').pop()}`;
+                    const { error: uploadError } = await supabaseClient.storage.from('paintings').upload(newFileName, uploadFile);
                     if (uploadError) return alert("Kunde inte ladda upp bildfil: " + uploadError.message);
                     imageUrl = supabaseClient.storage.from('paintings').getPublicUrl(newFileName).data.publicUrl;
                 }
